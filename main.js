@@ -1,6 +1,7 @@
 var http = require('http');
 var fs = require('fs');
 var url = require('url');
+var qs = require('querystring');
  
 function templateHTML(title, list, body){
   return `
@@ -13,6 +14,7 @@ function templateHTML(title, list, body){
   <body>
     <h1><a href="/">WEB</a></h1>
     ${list}
+    <a href="/create">create</a>
     ${body}
   </body>
   </html>
@@ -54,6 +56,33 @@ var app = http.createServer(function(request,response){
           });
         });
       }
+    } else if(pathname === '/create') {
+        fs.readdir('./data', function(error, filelist){
+          var title = 'Web - create';
+          var list = templateList(filelist);
+          var template = templateHTML(title, list, 
+            `<form action="https://3000-c8f18510-f06e-4a56-85f5-31513791afbf.ws-us02.gitpod.io/create_process" method="POST">
+            <input type="text" name="title" placeholder="제목"><br>
+            <textarea name="description" id="" cols="30" rows="10" placeholder="내용"></textarea><br>
+            <input type="submit">
+            </form>`);
+          response.writeHead(200);
+          response.end(template);
+        })
+    } else if(pathname === '/create_process') {
+        var body = '';
+        request.on('data', function(data){
+            body = body + data;
+        });
+        request.on('end', function() {
+            var post = qs.parse(body);
+            var title = post.title;
+            var description = post.description;
+            fs.writeFile(`./data/${title}`, description, 'utf8', err => {
+            response.writeHead(302, {Location: `/?id=${title}`});
+            response.end();
+            });
+        });
     } else {
       response.writeHead(404);
       response.end('Not found');
