@@ -3,32 +3,32 @@ var fs = require('fs');
 var url = require('url');
 var qs = require('querystring');
  
-function templateHTML(title, list, body){
-  return `
-  <!doctype html>
-  <html>
-  <head>
-    <title>WEB1 - ${title}</title>
-    <meta charset="utf-8">
-  </head>
-  <body>
-    <h1><a href="/">WEB</a></h1>
-    ${list}
-    <a href="/create">create</a>
-    ${body}
-  </body>
-  </html>
+function templateHTML(title, list, body, control){
+    return `
+    <!doctype html>
+    <html>
+    <head>
+        <title>WEB1 - ${title}</title>
+        <meta charset="utf-8">
+    </head>
+    <body>
+        <h1><a href="/">WEB</a></h1>
+        ${list}
+        ${control}
+        ${body}
+    </body>
+    </html>
   `;
 }
 function templateList(filelist){
-  var list = '<ul>';
-  var i = 0;
-  while(i < filelist.length){
-    list = list + `<li><a href="/?id=${filelist[i]}">${filelist[i]}</a></li>`;
-    i = i + 1;
-  }
-  list = list+'</ul>';
-  return list;
+    var list = '<ul>';
+    var i = 0;
+    while(i < filelist.length){
+        list = list + `<li><a href="/?id=${filelist[i]}">${filelist[i]}</a></li>`;
+        i = i + 1;
+    }
+    list = list+'</ul>';
+    return list;
 }
  
 var app = http.createServer(function(request,response){
@@ -36,38 +36,38 @@ var app = http.createServer(function(request,response){
     var queryData = url.parse(_url, true).query;
     var pathname = url.parse(_url, true).pathname;
     if(pathname === '/'){
-      if(queryData.id === undefined){
-        fs.readdir('./data', function(error, filelist){
-          var title = 'Welcome';
-          var description = 'Hello, Node.js';
-          var list = templateList(filelist);
-          var template = templateHTML(title, list, `<h2>${title}</h2>${description}`);
-          response.writeHead(200);
-          response.end(template);
-        })
-      } else {
-        fs.readdir('./data', function(error, filelist){
-          fs.readFile(`data/${queryData.id}`, 'utf8', function(err, description){
-            var title = queryData.id;
+        if(queryData.id === undefined){
+            fs.readdir('./data', function(error, filelist){
+            var title = 'Welcome';
+            var description = 'Hello, Node.js';
             var list = templateList(filelist);
-            var template = templateHTML(title, list, `<h2>${title}</h2>${description}`);
+            var template = templateHTML(title, list, `<h2>${title}</h2>${description}`, `<a href="/create">create</a>`);
             response.writeHead(200);
             response.end(template);
-          });
-        });
-      }
+            })
+        } else {
+        fs.readdir('./data', function(error, filelist){
+            fs.readFile(`data/${queryData.id}`, 'utf8', function(err, description){
+                var title = queryData.id;
+                var list = templateList(filelist);
+                var template = templateHTML(title, list, `<h2>${title}</h2>${description}`, `<a href="/create">create</a> <a href="/update?id=${title}">update</a> <a href="/delete">delete</a>`);
+                response.writeHead(200);
+                response.end(template);
+                });
+            });
+        }
     } else if(pathname === '/create') {
         fs.readdir('./data', function(error, filelist){
-          var title = 'Web - create';
-          var list = templateList(filelist);
-          var template = templateHTML(title, list, 
-            `<form action="https://3000-c8f18510-f06e-4a56-85f5-31513791afbf.ws-us02.gitpod.io/create_process" method="POST">
-            <input type="text" name="title" placeholder="제목"><br>
-            <textarea name="description" id="" cols="30" rows="10" placeholder="내용"></textarea><br>
-            <input type="submit">
-            </form>`);
-          response.writeHead(200);
-          response.end(template);
+            var title = 'Web - create';
+            var list = templateList(filelist);
+            var template = templateHTML(title, list,
+                `<form action="https://3000-d3d840ef-86ad-40c5-a8a9-03af076414e9.ws-us02.gitpod.io/create_process" method="POST">
+                <input type="text" name="title" placeholder="제목"><br>
+                <textarea name="description" id="" cols="30" rows="10" placeholder="내용"></textarea><br>
+                <input type="submit">
+                </form>`, '');
+            response.writeHead(200);
+            response.end(template);
         })
     } else if(pathname === '/create_process') {
         var body = '';
@@ -83,9 +83,45 @@ var app = http.createServer(function(request,response){
             response.end();
             });
         });
+    } else if(pathname === '/update') {
+        fs.readdir('./data', function(error, filelist){
+            fs.readFile(`./data/${queryData.id}`, 'utf8', function(err, description){
+                var title = queryData.id;
+                var list = templateList(filelist);
+                var template = templateHTML(title, list, 
+                    `<form action="https://3000-d3d840ef-86ad-40c5-a8a9-03af076414e9.ws-us02.gitpod.io/update_process" method="POST">
+                    <input type="hidden" name="id" value="${title}"></input>
+                    <input type="text" name="title" placeholder="제목" value="${title}"><br>
+                    <textarea name="description" id="" cols="30" rows="10" placeholder="내용">${description}</textarea><br>
+                    <input type="submit">
+                    </form>`, 
+                    `<a href="/create">create</a> <a href="/update">update</a> <a href="/delete">delete</a>`);
+                response.writeHead(200);
+                response.end(template);
+            });
+        });
+    } else if(pathname === '/update_process') {
+        console.log("A");
+        var body = '';
+        request.on('data', function(data){
+            body = body + data;
+        });
+        request.on('end', function() {
+            var post = qs.parse(body);
+            var id = post.id;
+            var title = post.title;
+            var description = post.description;
+            fs.rename(`./data/${id}`, `data/${title}`, function(error) {
+                fs.writeFile(`./data/${title}`, description, 'utf8', err => {
+                response.writeHead(302, {Location: `/?id=${title}`});
+                response.end();
+            })
+            console.log(post);
+            });
+        });
     } else {
-      response.writeHead(404);
-      response.end('Not found');
+        response.writeHead(404);
+        response.end('Not found');
     }
  
  
